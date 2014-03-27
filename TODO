@@ -1,0 +1,38 @@
+UI
+--
+ * bookmarks: fixed "<Back" label intead of "<$PREVIOUS_NAME"?
+ * better error reporting page (for 404 and similar)
+ * show visual zoom indication (zoom level? some icon?)
+ * show page icon (listen to signal, create object, feed theme, remember to del it when done)
+ * change icon of Bookmarks (or name) to reflect History is there as well
+ * move reload to URL bar?
+ * url bar: clear button?
+ * bookmarks: save page icon once it is known?
+ * history: save icon
+ * history: disable ewk built-in history and just use the one from eve, that should be saved with its state and restored on next startup.
+ * ewk_view_bg_color_set() based on theme color class?
+ * more: add search
+
+Preferences / State
+-------------------
+ * preferences (runtime, save at eet):
+   - toggle: use start page (otherwise home page)
+   - string: proxy
+ * privacy (maybe under preferences, maybe add management of each):
+   - clear database
+ * start page (like chromium, but mobile):
+   - click to home URL (with icon and title -- if known)
+   - easy access to bookmarks (click and expand the list? root entries?)
+   - most visited/recent links?
+   - recently closed?
+
+View
+----
+ * fix zoom out (seems < 1.0 is not allowed) when page specifies a fixed viewport/contents size, check google.com with '-U iphone'
+ * implement viewport tag support (good for mobile pages)
+
+Misc
+----
+ * documentation: HTML, provided as a fixed bookmark item
+ * download manager?
+ * history + bookmark: remember if rss exist, and request it silently to display feedback when new content is available
