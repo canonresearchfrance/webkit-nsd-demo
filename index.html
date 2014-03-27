@@ -1,0 +1,306 @@
+<html>
+<head>
+    <script type="text/javascript" src="util/parser/jssaxparser/sax.js"></script>
+    <script type="text/javascript" src="util/parser/jssaxparser/DefaultHandlers.js"></script>
+    <script type="text/javascript" src="util/parser/jssaxparser/DummyContentHandler.js"></script>
+    <script type="text/javascript" src="util/ohnet/ControlPoint/lib/ohnet.soaprequest.js"></script>
+    <script type="text/javascript" src="util/ohnet/ControlPoint/lib/ohnet.serviceproperty.js"></script>
+    <script type="text/javascript" src="util/ohnet/ControlPoint/Proxies/CpUpnpOrgAVTransport1.js"></script>
+    <script type="text/javascript" src="util/ohnet/ControlPoint/Proxies/CpUpnpOrgAVTransport2.js"></script>
+    <script type="text/javascript" src="util/ohnet/ControlPoint/Proxies/CpUpnpOrgConnectionManager1.js"></script>
+    <script type="text/javascript" src="util/ohnet/ControlPoint/Proxies/CpUpnpOrgConnectionManager2.js"></script>
+    <script type="text/javascript" src="util/ohnet/ControlPoint/Proxies/CpUpnpOrgContentDirectory1.js"></script>
+    <script type="text/javascript" src="util/ohnet/ControlPoint/Proxies/CpUpnpOrgContentDirectory2.js"></script>
+    <script type="text/javascript" src="util/ohnet/ControlPoint/Proxies/CpUpnpOrgContentDirectory3.js"></script>
+    <script type="text/javascript" src="util/ohnet/ControlPoint/Proxies/CpUpnpOrgRenderingControl1.js"></script>
+    <script type="text/javascript" src="util/ohnet/ControlPoint/Proxies/CpUpnpOrgRenderingControl2.js"></script>
+    <script type="text/javascript" src="js/DidlNode.js"></script>
+    <script type="text/javascript" src="js/Explorer.js"></script>
+    <script type="text/javascript" src="js/Info.js"></script>
+    <script type="text/javascript" src="js/Player.js"></script>
+    <script type="text/javascript" src="js/SettingManager.js"></script>
+    <script type="text/javascript" src="js/MediaTree.js"></script>
+    <script type="text/javascript" src="js/ServiceConfig.js"></script>
+    <script type="text/javascript" src="js/ServiceEvent.js"></script>
+    <script type="text/javascript" src="util/jstree-v.pre1.0/_lib/jquery.js"></script>
+    <script type="text/javascript" src="util/jstree-v.pre1.0/_lib/jquery.cookie.js"></script>
+    <script type="text/javascript" src="util/jstree-v.pre1.0/_lib/jquery.hotkeys.js"></script>
+
+    <script type="text/javascript" src="util/jquery-mobile/jquery.mobile-1.3.1.min.js"></script>
+    <script type="text/javascript" src="js/jquery.simplevideo.js" charset="utf-8"></script>
+    <link type="text/css" rel="stylesheet" href="util/jquery-mobile/jquery.mobile-1.3.1.min.css"/>
+    <link type="text/css" rel="stylesheet" href="css/simplevideo.css" media="screen" />    
+    <style>
+        .ui-btn-inner {
+            padding: 25px;
+        }
+        input.ui-slider-input {
+            display : none !important;
+        }
+        .ui-controlgroup-label h2 {
+            height : 50 !important;
+            text-align: center !important;
+        }
+    </style>
+</head>
+
+<body>
+<!--UPnP ControlPoint-->
+<br>
+<script>
+    var explorer;
+    var player;
+    var info;
+    var settingManager;
+    var SERVICES;
+    var NOTIFY_SERVICES_AVAILABLE;
+    var CURRENT_SERVICES_AVAILABLE;
+    var service_types = ["upnp:urn:schemas-upnp-org:service:ContentDirectory:1",
+                         "upnp:urn:schemas-upnp-org:service:ContentDirectory:2",
+                         "upnp:urn:schemas-upnp-org:service:ContentDirectory:3",
+                         "upnp:urn:schemas-upnp-org:service:AVTransport:1",
+                         "upnp:urn:schemas-upnp-org:service:AVTransport:2",
+                         "upnp:urn:schemas-upnp-org:service:RenderingControl:1",
+                         "upnp:urn:schemas-upnp-org:service:RenderingControl:2"];
+
+	function discoverServices() {
+		// Get network services
+		if (navigator.getNetworkServices) {
+            $('#waitMessage').show();
+			navigator.getNetworkServices(
+                service_types, 
+                servicesDiscovered, 
+                serviceError);
+    		document.getElementById('servicesDiv').innerHTML = "";
+		}
+	}
+	
+    function createServicesContainer(services) {
+        // Clear previous registration
+        explorer.deinit();
+        player.deinit();
+        settingManager.deinit();
+
+	    for (var i = 0; i < services.length; i++) {
+            var service = services[i] ;
+            if (service.type.indexOf("ContentDirectory") != -1) {
+                explorer.addContentDirectory(service);
+            } else if (service.type.indexOf("AVTransport") != -1) {
+                player.addAVTransport(service);
+            } else if (service.type.indexOf("RenderingControl") != -1) {
+                settingManager.addRenderingControl(service);
+            } 
+        }
+        
+        explorer.init(info, info.create, mediaSelected);
+        player.init();
+        settingManager.init();
+
+        $('#waitMessage').hide();
+        $('#scanButton').hide();
+        $('#folderTitle').show();
+        $('#folderTitle').text("UPnP Servers");
+        $('#page-footer').hide();
+    }
+
+	function servicesDiscovered(services) {
+        if (SERVICES) {
+            // Release notification on previous request
+            SERVICES.onservicefound = undefined;
+            SERVICES.onservicelost = undefined;
+            delete SERVICES;
+        }
+        SERVICES = services;
+        NOTIFY_SERVICES_AVAILABLE = services.servicesAvailable;
+        CURRENT_SERVICES_AVAILABLE = services.servicesAvailable;
+        createServicesContainer(services)
+        services.onservicefound = serviceFound;
+        services.onservicelost = serviceLost;
+	}
+
+    function serviceFound() {
+        // Check if this is a case of an online/offline service 
+        // or a "real" new service found
+        NOTIFY_SERVICES_AVAILABLE++;
+        if (NOTIFY_SERVICES_AVAILABLE == CURRENT_SERVICES_AVAILABLE)
+            return;
+
+        // Get network services
+        $('#scanButton').show();
+        $('#page-footer').show();
+        $('#page-footer .ui-btn-text').text("Network service update (new service found/lost)");
+    }
+	
+    function serviceLost() {
+        NOTIFY_SERVICES_AVAILABLE--;
+    }
+
+	function serviceError(error) {
+		// Error callback for service network discovery
+        var msg = "<h1>An error occurred (error code " + error.code + ", ";
+        if (error.code == error.PERMISSION_DENIED_ERR)
+            msg += "PERMISSION_DENIED_ERR";
+        else if (error.code == error.UNKNOWN_TYPE_PREFIX_ERR)
+            msg += "UNKNOWN_TYPE_PREFIX_ERR";
+        msg += ").</h1>";
+		document.getElementById('servicesDiv').innerHTML = msg;
+        $('#page-footer .ui-btn-text').text(msg);
+        $('#waitMessage').hide();
+	}
+	
+    function mediaSelected(node) {
+        showPlayer();
+        player.setNode(node);
+    }
+    
+    function clearNavbarBtn() {
+        $('#browseButton').removeClass( $.mobile.activeBtnClass );
+        $('#infoButton').removeClass( $.mobile.activeBtnClass );
+        $('#playerButton').removeClass( $.mobile.activeBtnClass );
+        $('#settingsButton').removeClass( $.mobile.activeBtnClass );
+    }
+
+    function hideFooter() {
+        $('#page-footer').hide();
+    }
+
+    function showMediaList() {
+        if ($('#medialist').is(":visible")) {
+            explorer.backMediaList();
+            return;
+        }
+        $('#info-container').hide();
+        $('#playerview').hide();
+        $('#settingsview').hide();
+        $('#medialist').show(); 
+    }
+
+    function showInfoList() {
+        $('#medialist').hide();
+        $('#playerview').hide();
+        $('#settingsview').hide();
+        $('#info-container').show(); 
+    }
+
+    function showPlayer() {
+        $('#medialist').hide();
+        $('#info-container').hide();
+        $('#settingsview').hide();
+        $('#playerview').show(); 
+    
+        clearNavbarBtn()
+        $('#playerButton').addClass( $.mobile.activeBtnClass );
+    }
+
+    function showSettings() {
+        $('#medialist').hide();
+        $('#info-container').hide();
+        $('#playerview').hide();
+        $('#settingsview').show(); 
+    }
+
+    $(function () {
+        explorer = new Explorer();
+        settingManager = new SettingManager();
+        player = new Player(settingManager);
+        info = new Info();
+
+        showMediaList();
+    });
+    
+</script>
+
+<div data-role="page">
+<div data-role="header">
+    <h1>Network Service Discovery Demo</h1>
+</div>
+<div>
+    <a href="#" id="scanButton" data-role="button" onclick="discoverServices();">Scan Network</a>
+    <div id='waitMessage' style="display: none; text-align: center">
+            <h1>Please wait a few seconds while content directories are being discovered...</h1>
+            <img src="./images/ajax-loader.gif" />
+    </div>
+    <h2 id="folderTitle" style="display: none; text-align: center"> </h2>
+</div>
+
+<div data-role="header">
+    <div id='navbar' data-role="navbar">
+    <ul>
+        <li><a href="#" id="browseButton" class="ui-btn-active" data-role="button" style="padding: 25px" onclick="showMediaList();"><span>Browse</span></a></li>
+        <li><a href="#" id="infoButton" data-role="button" style="padding: 25px" onclick="showInfoList();">Info</a></li>
+        <li><a href="#" id="playerButton" data-role="button" style="padding: 25px" onclick="showPlayer();">Player</a></li>
+        <li><a href="#" id="settingsButton" data-role="button" style="padding: 25px" onclick="showSettings();">Settings</a></li>
+    </ul>
+    </div> 
+</div>
+
+<div data-role="content">
+    <!-- Navigator -->
+    <div id="navigator">
+    <ul id="medialist" data-role="listview" style="display: none"></ul>
+    </div>
+
+    <!-- Info -->
+    <div id="info-container" data-role="collapsible-set"></div>
+
+    <!-- Player -->
+    <div id="playerview">
+        <!-- video container -->
+        <div id="player-container" style="text-align:center;"></div>
+
+        <!-- renderer list -->
+        <div id="listDiv"> 
+            <fieldset data-role="controlgroup" id="listFieldset" class="ui-body-a"></fieldset>
+        </div>
+
+        <div class="ui-grid-b" id="play-controller">
+            <!-- playing control -->
+            <div class="ui-block-a" data-role="none">
+                <label for="slider-position" id="player-timing"><h2>Position : 00:00:00 / 00:00:00</h2></label>
+                <input type="range" name="slider-position" id="slider-position" value="0" min="0" max="100" data-highlight="true" />
+            </div>
+            <div class="ui-block-b"></div>
+            <div class="ui-block-c" data-role="controlgroup" data-type="horizontal">
+                <a href="#" id="playButton" data-theme="b"   data-role="button" onclick="player.play();">Play</a>
+                <a href="#" id="pauseButton" data-theme="b"  data-role="button" onclick="player.pause();">Pause</a>
+                <a href="#" id="stopButton" data-theme="b"   data-role="button" onclick="player.stop();">Stop</a>
+            </div> 
+        </div> 
+
+        <div class="ui-grid-b" id="volume-controller">
+            <!-- volume control -->
+            <div class="ui-block-a" data-role="fieldcontain">
+                <label for="slider-volume"><h2>Volume</h2></label>
+                <input type="range" name="slider-volume" id="slider-volume" value="0" min="0" max="100" data-highlight="true" />
+            </div> 
+            <div class="ui-block-b"></div>
+            <div class="ui-block-c">
+                <div data-role="fieldcontain">
+                    <label for="muteButton"><h2>Mute</h2></label>
+                    <select name="muteButton" id="muteButton" data-role="slider" data-theme="c" data-track-theme="a">
+                        <option value="0">No</option>
+                        <option value="1">Yes</option>
+                    </select>
+                </div>
+            </div>
+
+        </div> 
+    </div>
+
+    <!-- Settings -->
+    <div id="settingsview" data-role="listview"></div>
+
+    <div id="servicesDiv"></div> 
+</div>
+
+<div data-role="footer" data-id="page-footer-id" data-position="fixed">
+    <div class="ui-grid-solo">
+        <a id="page-footer" data-role="button" data-icon="delete" style='display : none;' data-iconpos="right" onclick="hideFooter()"></a></div>
+    </div>
+</div>
+    
+</div><!-- /page -->
+    
+</body>
+</html>
+
