@@ -1,0 +1,15 @@
+[Desktop Entry]
+Encoding=UTF-8
+Name=eve
+Comment=WebKit-EFL demo application
+Comment[eo]=Provoversia aplikaĵo de WebKit-EFL
+Comment[es]=Aplicación demostrativa de WebKit-EFL
+Comment[fr]=Démo WebKit-EFL
+Comment[gl]=Aplicativo demostrativo de WebKit-EFL
+Comment[it]=Applicazione dimostrativa di WebKit-EFL
+Comment[pt]=Demonstração do WebKit-EFL
+Exec=eve
+Icon=eve
+Terminal=false
+Type=Application
+Categories=Application;Utility;
